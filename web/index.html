@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Извлечение персонажей из короткого видео">
+    <title>CHARACTER.EXTRACTOR</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="На главную">
+        <span class="brand-mark" aria-hidden="true">///</span>
+        CHARACTER.EXTRACTOR
+      </a>
+      <nav class="nav" aria-label="Системные ссылки">
+        <a href="/docs" target="_blank" rel="noreferrer">API</a>
+        <a href="/health" target="_blank" rel="noreferrer">STATUS</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <p class="eyebrow">LOCAL ML TOOL / 001</p>
+        <h1 id="page-title">VIDEO<br>→ CAST</h1>
+        <p class="lead">
+          Загрузи короткий MP4 с людьми, 2D или 3D-анимацией. Сервис
+          найдёт 2–3 ключевых персонажа и соберёт изображения целиком.
+        </p>
+      </section>
+
+      <section class="panel upload-panel" aria-labelledby="upload-title">
+        <div class="panel-heading">
+          <span class="step-number">01</span>
+          <h2 id="upload-title">ИСХОДНОЕ ВИДЕО</h2>
+        </div>
+
+        <form id="upload-form">
+          <label class="drop-zone" id="drop-zone" for="video-input">
+            <input id="video-input" name="video" type="file" accept="video/mp4,.mp4">
+            <span class="file-type" aria-hidden="true">MP4</span>
+            <span class="drop-title">ПЕРЕТАЩИ ФАЙЛ СЮДА</span>
+            <span class="drop-subtitle">или нажми, чтобы выбрать</span>
+          </label>
+
+          <div class="file-row" id="file-row" hidden>
+            <div>
+              <span class="micro-label">ВЫБРАНО</span>
+              <strong id="file-name"></strong>
+            </div>
+            <span id="file-size"></span>
+          </div>
+
+          <div class="action-row">
+            <p>5–10 сек · до 100 МБ · люди / 2D / 3D</p>
+            <button class="primary-button" id="submit-button" type="submit" disabled>
+              ЗАПУСТИТЬ →
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel process-panel" id="process-panel" aria-labelledby="process-title" hidden>
+        <div class="panel-heading">
+          <span class="step-number">02</span>
+          <h2 id="process-title">ОБРАБОТКА</h2>
+          <span class="status-chip" id="status-chip">QUEUED</span>
+        </div>
+
+        <div class="stage-row" aria-live="polite">
+          <strong id="stage-text">Видео принято</strong>
+          <span id="progress-value">0%</span>
+        </div>
+        <div
+          class="progress-track"
+          id="progress-track"
+          role="progressbar"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          aria-valuenow="0"
+        >
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <p class="job-reference">JOB / <span id="job-id">—</span></p>
+        <div class="error-box" id="error-box" role="alert" hidden></div>
+      </section>
+
+      <section class="results" id="results" aria-labelledby="results-title" hidden>
+        <div class="results-heading">
+          <div class="panel-heading">
+            <span class="step-number inverted">03</span>
+            <h2 id="results-title">ПЕРСОНАЖИ</h2>
+          </div>
+          <button class="secondary-button" id="new-job-button" type="button">
+            НОВОЕ ВИДЕО
+          </button>
+        </div>
+        <div class="character-grid" id="character-grid"></div>
+      </section>
+    </main>
+
+    <footer>
+      <span>LOCAL PROCESSING</span>
+      <span>YOLOE-26 / TRACKTRACK / GEMINI</span>
+    </footer>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>

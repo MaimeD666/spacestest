@@ -1,0 +1,22 @@
+# Lower initialization thresholds for stylized, non-human and open-vocabulary
+# detections. Gemini performs the final false-positive filtering and deduplication.
+tracker_type: tracktrack
+track_high_thresh: 0.25
+track_low_thresh: 0.10
+new_track_thresh: 0.25
+track_buffer: 40
+match_thresh: 0.75
+lost_match_thr: 0.9
+iou_weight: 0.5
+reid_weight: 0.5
+conf_weight: 0.1
+angle_weight: 0.05
+penalty_p: 0.2
+penalty_q: 0.4
+reduce_step: 0.05
+tai_thr: 0.55
+min_track_len: 2
+gmc_method: sparseOptFlow
+with_reid: true
+model: auto
+

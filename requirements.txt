@@ -1,0 +1,15 @@
+# Runtime dependencies. Versions are pinned for reproducible installations.
+fastapi==0.141.1
+uvicorn[standard]==0.52.4
+python-multipart==0.0.32
+python-dotenv==1.2.3
+pydantic==2.13.4
+google-genai==1.75.0
+ultralytics==8.4.126
+clip @ https://github.com/ultralytics/CLIP/archive/68dce32140994dfcb645a1320c4ebdc034fc19fd.zip
+lap==0.5.13
+opencv-python==4.14.0.94
+numpy==2.2.6; python_version == "3.10"
+numpy==2.4.6; python_version >= "3.11"
+Pillow==12.3.0
+torch==2.13.0

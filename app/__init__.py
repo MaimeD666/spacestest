@@ -1,0 +1,2 @@
+"""Video character extraction service."""
+
