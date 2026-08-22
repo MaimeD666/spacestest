@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -83,18 +84,23 @@ class GeminiService:
             images = [Image.open(candidate.path) for candidate in selected]
             response = self._generate_image_response([prompt, *images], types)
             output_path.parent.mkdir(parents=True, exist_ok=True)
+            generated_payloads: list[bytes] = []
             for part in response.parts or []:
-                if getattr(part, "inline_data", None) is not None:
-                    generated = part.as_image()
-                    if generated is None or generated.image_bytes is None:
-                        continue
-                    # Google SDK's Image.save() does not accept Pillow options and
-                    # may preserve JPEG/WebP bytes under a .png suffix. Decode the
-                    # returned bytes with Pillow and always encode a real PNG.
-                    with Image.open(BytesIO(generated.image_bytes)) as source:
-                        source.save(output_path, format="PNG")
-                    return
-            raise GeminiResponseError("Gemini не вернул сгенерированное изображение")
+                if getattr(part, "thought", False):
+                    continue
+                payload = self._image_bytes(part)
+                if payload:
+                    generated_payloads.append(payload)
+            if generated_payloads:
+                # Gemini can return intermediate/final image parts. The final
+                # non-thought image is the result intended for the user.
+                with Image.open(BytesIO(generated_payloads[-1])) as source:
+                    source.save(output_path, format="PNG")
+                return
+            details = self._empty_image_details(response)
+            raise GeminiResponseError(
+                "Gemini не вернул сгенерированное изображение" + details
+            )
         finally:
             for image in images:
                 image.close()
@@ -109,16 +115,16 @@ class GeminiService:
         """
         configs = [
             types.GenerateContentConfig(
-                response_modalities=["IMAGE"],
+                response_modalities=["TEXT", "IMAGE"],
                 image_config=types.ImageConfig(
                     aspect_ratio="3:4", image_size=self.settings.image_size
                 ),
             ),
             types.GenerateContentConfig(
-                response_modalities=["IMAGE"],
+                response_modalities=["TEXT", "IMAGE"],
                 image_config=types.ImageConfig(aspect_ratio="3:4"),
             ),
-            types.GenerateContentConfig(response_modalities=["IMAGE"]),
+            types.GenerateContentConfig(response_modalities=["TEXT", "IMAGE"]),
         ]
         for index, config in enumerate(configs):
             try:
@@ -132,6 +138,56 @@ class GeminiService:
                 if is_last_attempt or not self._is_unsupported_config_error(error):
                     raise
         raise AssertionError("unreachable")
+
+    @staticmethod
+    def _image_bytes(part: Any) -> bytes | None:
+        """Decode both documented inline data and SDK image wrappers."""
+        inline_data = getattr(part, "inline_data", None)
+        if inline_data is None:
+            return None
+
+        data = getattr(inline_data, "data", None)
+        if isinstance(data, str):
+            try:
+                return base64.b64decode(data, validate=True)
+            except (ValueError, TypeError):
+                pass
+        elif isinstance(data, (bytes, bytearray, memoryview)):
+            return bytes(data)
+
+        generated = part.as_image()
+        if generated is None:
+            return None
+        image_bytes = getattr(generated, "image_bytes", None)
+        if isinstance(image_bytes, (bytes, bytearray, memoryview)):
+            return bytes(image_bytes)
+        if isinstance(generated, Image.Image):
+            buffer = BytesIO()
+            generated.save(buffer, format="PNG")
+            return buffer.getvalue()
+        return None
+
+    @staticmethod
+    def _empty_image_details(response: Any) -> str:
+        details: list[str] = []
+        texts = [
+            str(part.text).strip()
+            for part in (getattr(response, "parts", None) or [])
+            if getattr(part, "text", None) and not getattr(part, "thought", False)
+        ]
+        if texts:
+            details.append("ответ модели: " + " ".join(texts)[:400])
+
+        candidates = getattr(response, "candidates", None) or []
+        if candidates:
+            finish_reason = getattr(candidates[0], "finish_reason", None)
+            if finish_reason:
+                details.append(f"finish_reason={finish_reason}")
+        prompt_feedback = getattr(response, "prompt_feedback", None)
+        block_reason = getattr(prompt_feedback, "block_reason", None)
+        if block_reason:
+            details.append(f"block_reason={block_reason}")
+        return f" ({'; '.join(details)})" if details else ""
 
     @staticmethod
     def _is_unsupported_config_error(error: Exception) -> bool:

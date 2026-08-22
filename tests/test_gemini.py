@@ -3,9 +3,10 @@ from io import BytesIO
 from pathlib import Path
 
 from PIL import Image
+import pytest
 
 from app.config import settings
-from app.gemini import GeminiService
+from app.gemini import GeminiResponseError, GeminiService
 from app.models import CharacterPlan, DeduplicationPlan
 from app.video import ReferenceCandidate
 
@@ -194,6 +195,96 @@ def test_image_generation_falls_back_when_optional_config_is_unsupported(
     assert FakeModels.calls == 2
     with Image.open(output_path) as result:
         assert result.format == "PNG"
+
+
+def test_generate_character_reads_documented_inline_data(tmp_path: Path) -> None:
+    reference_path = tmp_path / "reference.jpg"
+    Image.new("RGB", (16, 16), "white").save(reference_path)
+    reference = ReferenceCandidate(
+        reference_id="t0001_r01",
+        track_id=1,
+        frame_index=1,
+        timestamp_seconds=0.1,
+        quality_score=0.9,
+        path=reference_path,
+    )
+    character = CharacterPlan(
+        character_id="character_01",
+        track_ids=[1],
+        reference_ids=[reference.reference_id],
+        appearance="blue coat",
+        media_style="photorealistic",
+        character_form="human",
+        style_description="live-action footage",
+        confidence=0.9,
+    )
+    generated_buffer = BytesIO()
+    Image.new("RGB", (10, 20), "blue").save(generated_buffer, format="JPEG")
+
+    class FakePart:
+        inline_data = type("InlineData", (), {"data": generated_buffer.getvalue()})()
+        thought = False
+
+        @staticmethod
+        def as_image() -> None:
+            return None
+
+    class FakeModels:
+        @staticmethod
+        def generate_content(**_kwargs: object) -> object:
+            return type("Response", (), {"parts": [FakePart()]})()
+
+    service = GeminiService(replace(settings, google_api_key="test-key"))
+    service._client = type("Client", (), {"models": FakeModels()})()
+    output_path = tmp_path / "character.png"
+    service.generate_character(character, {reference.reference_id: reference}, output_path)
+
+    with Image.open(output_path) as result:
+        assert result.format == "PNG"
+        assert result.size == (10, 20)
+
+
+def test_text_only_image_response_reports_model_reason(tmp_path: Path) -> None:
+    reference_path = tmp_path / "reference.jpg"
+    Image.new("RGB", (16, 16), "white").save(reference_path)
+    reference = ReferenceCandidate(
+        reference_id="t0001_r01",
+        track_id=1,
+        frame_index=1,
+        timestamp_seconds=0.1,
+        quality_score=0.9,
+        path=reference_path,
+    )
+    character = CharacterPlan(
+        character_id="character_01",
+        track_ids=[1],
+        reference_ids=[reference.reference_id],
+        appearance="blue coat",
+        media_style="photorealistic",
+        character_form="human",
+        style_description="live-action footage",
+        confidence=0.9,
+    )
+
+    class TextPart:
+        inline_data = None
+        text = "The image request could not be completed."
+        thought = False
+
+    class FakeModels:
+        @staticmethod
+        def generate_content(**_kwargs: object) -> object:
+            return type("Response", (), {"parts": [TextPart()], "candidates": []})()
+
+    service = GeminiService(replace(settings, google_api_key="test-key"))
+    service._client = type("Client", (), {"models": FakeModels()})()
+
+    with pytest.raises(GeminiResponseError, match="could not be completed"):
+        service.generate_character(
+            character,
+            {reference.reference_id: reference},
+            tmp_path / "character.png",
+        )
 
 
 def test_compatibility_fallback_does_not_mask_auth_or_quota_errors() -> None:
