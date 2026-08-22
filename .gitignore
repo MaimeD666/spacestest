@@ -1,0 +1,15 @@
+.DS_Store
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+data/jobs/*
+!data/jobs/.gitkeep
+data/ultralytics/
+data/weights/
+*.pt
+*.onnx
+*.ts
